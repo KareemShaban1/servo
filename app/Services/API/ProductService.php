@@ -2,12 +2,15 @@
 
 namespace App\Services\API;
 
+use App\Http\Resources\Category\CategoryResource;
 use App\Http\Resources\Product\ProductCollection;
 use App\Http\Resources\Product\ProductResource;
 use App\Http\Resources\Product\ProductWithoutAuthCollection;
 use App\Http\Resources\Product\ProductWithoutAuthResource;
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\Variation;
+use Illuminate\Database\Eloquent\Builder;
 use App\Services\BaseService;
 use App\Traits\HelperTrait;
 use App\Traits\UploadFileTrait;
@@ -36,50 +39,21 @@ class ProductService extends BaseService
                 ->where('products.type', '!=', 'modifier')
                 ->appBusinessId()
                 ->productForSales()
-                ->activeInApp()
-                ->latest();
+                ->activeInApp();
 
-            // Exclude products with negative stock
-            // $query->whereHas('variations.variation_location_details', function ($q) {
-            //     $q->havingRaw('SUM(qty_available) >= 0');
-            // });
+            $this->applyProductListFilters($query, $request);
 
-
-            // Check if a category_id is passed and apply the filter
-            if (!empty($request->category_id)) {
-                $query->where('category_id', $request->category_id);
-            }
-
-            if (!empty($request->category_id) && !empty($request->sub_category_id)) {
-                $query->where('category_id', $request->category_id)->
-                    where('sub_category_id', $request->sub_category_id);
-            }
-
-
+            $searchCategories = null;
             if ($request->filled('search')) {
-                $searchTerm = $request->search;
+                $categoryIds = (clone $query)
+                    ->whereNotNull('category_id')
+                    ->distinct()
+                    ->pluck('category_id');
 
-                // Split the search term into tokens (words)
-                $tokens = explode(' ', strtolower($searchTerm));
-
-                $query->where(function ($q) use ($tokens) {
-                    foreach ($tokens as $token) {
-                        $q->where(function ($innerQuery) use ($token) {
-                            $innerQuery->where('name', 'like', '%' . $token . '%')
-                                ->orWhere('sku', 'like', '%' . $token . '%')
-                                //    ->orWhere('description', 'like', '%' . $token . '%')
-                                ->orWhereHas('tags', function ($tagQuery) use ($token) {
-                                    $tagQuery->where('name', 'like', '%' . $token . '%');
-                                });
-                        });
-                    }
-                });
+                if ($categoryIds->isNotEmpty()) {
+                    $searchCategories = Category::whereIn('id', $categoryIds)->get();
+                }
             }
-
-            // if ($product->product_type == 'combo') {
-            //     if ($check_qty) {
-            //         $product->qty_available = $this->calculateComboQuantity($location_id, $product->combo_variations);
-            //     }
 
             // Apply withTrashed logic if needed
             $query = $this->withTrashed($query, $request);
@@ -88,12 +62,110 @@ class ProductService extends BaseService
             $products = $this->withPagination($query, $request);
 
             // Wrap the data in ProductCollection and apply withFullData() here
-            return (new ProductCollection($products))
+            $collection = (new ProductCollection($products))
                 ->withFullData(!($request->full_data == 'false'));
+
+            if ($searchCategories) {
+                $collection->additional([
+                    'categories' => $searchCategories->map(function ($category) {
+                        return (new CategoryResource($category))->withFullData(false);
+                    })->values(),
+                ]);
+            }
+
+            return $collection;
 
         } catch (\Exception $e) {
             // Handle any exception that might occur
             return $this->handleException($e, __('message.Error happened while listing products'));
+        }
+    }
+
+    /**
+     * Apply shared list filters: category, search, in_stock, sorting.
+     */
+    private function applyProductListFilters(Builder $query, Request $request): void
+    {
+        if (!empty($request->category_id)) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        if (!empty($request->category_id) && !empty($request->sub_category_id)) {
+            $query->where('category_id', $request->category_id)
+                ->where('sub_category_id', $request->sub_category_id);
+        }
+
+        if ($request->has('in_stock')) {
+            $inStock = filter_var($request->in_stock, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+            if ($inStock === true) {
+                $query->whereHas('variations.variation_location_details', function ($q) {
+                    $q->where('qty_available', '>', 0)
+                        ->whereHas('location', function ($locationQuery) {
+                            $locationQuery->where('is_active', 1);
+                        });
+                });
+            } elseif ($inStock === false) {
+                $query->whereDoesntHave('variations.variation_location_details', function ($q) {
+                    $q->where('qty_available', '>', 0)
+                        ->whereHas('location', function ($locationQuery) {
+                            $locationQuery->where('is_active', 1);
+                        });
+                });
+            }
+        }
+
+        if ($request->filled('search')) {
+            $searchTerm = $request->search;
+            $tokens = array_filter(explode(' ', strtolower($searchTerm)));
+
+            $query->where(function ($q) use ($tokens) {
+                foreach ($tokens as $token) {
+                    $q->where(function ($innerQuery) use ($token) {
+                        $innerQuery->where('name', 'like', '%' . $token . '%')
+                            ->orWhere('sku', 'like', '%' . $token . '%')
+                            ->orWhereHas('tags', function ($tagQuery) use ($token) {
+                                $tagQuery->where('name', 'like', '%' . $token . '%');
+                            });
+                    });
+                }
+            });
+        }
+
+        $this->applyProductListSorting($query, $request);
+    }
+
+    /**
+     * sort_by: name | price | created_at
+     * sort: asc | desc (defaults to desc for created_at, asc for name/price)
+     */
+    private function applyProductListSorting(Builder $query, Request $request): void
+    {
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sort = strtolower($request->input('sort', 'desc'));
+
+        if (!in_array($sort, ['asc', 'desc'], true)) {
+            $sort = 'desc';
+        }
+
+        switch ($sortBy) {
+            case 'name':
+                $query->orderBy('products.name', $sort);
+                break;
+            case 'price':
+                $priceSubquery = Variation::query()
+                    ->selectRaw('MIN(sell_price_inc_tax)')
+                    ->whereColumn('variations.product_id', 'products.id')
+                    ->whereNull('variations.deleted_at');
+
+                $query->orderBy($priceSubquery, $sort);
+                break;
+            case 'created_at':
+                $query->orderBy('products.created_at', $sort);
+                break;
+            default:
+                $query->latest();
+                break;
         }
     }
 
