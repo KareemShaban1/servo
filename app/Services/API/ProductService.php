@@ -45,10 +45,7 @@ class ProductService extends BaseService
 
             $searchCategories = null;
             if ($request->filled('search')) {
-                $categoryIds = (clone $query)
-                    ->whereNotNull('category_id')
-                    ->distinct()
-                    ->pluck('category_id');
+                $categoryIds = $this->getSearchResultCategoryIds($query);
 
                 if ($categoryIds->isNotEmpty()) {
                     $searchCategories = Category::whereIn('id', $categoryIds)->get();
@@ -65,11 +62,12 @@ class ProductService extends BaseService
             $collection = (new ProductCollection($products))
                 ->withFullData(!($request->full_data == 'false'));
 
-            if ($searchCategories) {
+            if ($searchCategories && $searchCategories->isNotEmpty()) {
                 $collection->additional([
-                    'categories' => $searchCategories->map(function ($category) {
-                        return (new CategoryResource($category))->withFullData(false);
-                    })->values(),
+                    'categories' => $searchCategories
+                        ->map(fn ($category) => (new CategoryResource($category))->withFullData(false)->toArray($request))
+                        ->values()
+                        ->all(),
                 ]);
             }
 
@@ -79,6 +77,30 @@ class ProductService extends BaseService
             // Handle any exception that might occur
             return $this->handleException($e, __('message.Error happened while listing products'));
         }
+    }
+
+    /**
+     * Distinct category IDs for products matching the current list query (incl. search).
+     */
+    private function getSearchResultCategoryIds(Builder $query)
+    {
+        $categoryIds = (clone $query)
+            ->select('products.category_id')
+            ->whereNotNull('products.category_id')
+            ->where('products.category_id', '!=', 0)
+            ->reorder()
+            ->distinct()
+            ->pluck('category_id');
+
+        $subCategoryIds = (clone $query)
+            ->select('products.sub_category_id')
+            ->whereNotNull('products.sub_category_id')
+            ->where('products.sub_category_id', '!=', 0)
+            ->reorder()
+            ->distinct()
+            ->pluck('sub_category_id');
+
+        return $categoryIds->merge($subCategoryIds)->unique()->filter()->values();
     }
 
     /**
