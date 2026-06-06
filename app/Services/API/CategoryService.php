@@ -22,11 +22,9 @@ class CategoryService extends BaseService
 
         try {
 
-            $query = Category::onlyParent()->with(['subcategories' => function ($query) {
-                $query->orderBy('sort_order', 'asc')->orderBy('name', 'asc');
-            }])
+            $query = Category::onlyParent()->with('sub_categories')
             ->productType()
-	->isMainCategory()
+	// ->isMainCategory()
             ->orderBy('sort_order', 'asc')
             ->orderBy('is_sub_category', 'asc')
             ->orderBy('name', 'asc');
