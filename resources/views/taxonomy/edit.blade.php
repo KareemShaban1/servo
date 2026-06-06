@@ -34,6 +34,10 @@
         {!! Form::label('description', __( 'lang_v1.description' ) . ':') !!}
         {!! Form::textarea('description', $category->description, ['class' => 'form-control', 'placeholder' => __( 'lang_v1.description'), 'rows' => 3]); !!}
       </div>
+      <div class="form-group">
+        {!! Form::label('sort_order', __( 'lang_v1.sort_order' ) . ':') !!}
+        {!! Form::number('sort_order', $category->sort_order ?? 0, ['class' => 'form-control', 'min' => 0, 'step' => 1]); !!}
+      </div>
 
       
       <div class="form-group">

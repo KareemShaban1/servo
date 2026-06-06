@@ -33,7 +33,11 @@ class Category extends Model
      *
      * @var array
      */
-    protected $fillable = ['name','business_id','is_sub_category','short_code','parent_id','category_type','description','slug','image','created_by'];
+    protected $fillable = ['name','business_id','is_sub_category','short_code','parent_id','category_type','description','sort_order','slug','image','created_by'];
+
+    protected $casts = [
+        'sort_order' => 'integer',
+    ];
 
 
 

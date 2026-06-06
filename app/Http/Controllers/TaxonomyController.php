@@ -51,10 +51,11 @@ class TaxonomyController extends Controller
                 ->where('category_type', $category_type)
                 // ->where('parent_id',0)
                 ->select(
-                    ['name', 'short_code', 'description', 'id', 'is_sub_category', 'parent_id', 'image']
+                    ['name', 'short_code', 'description', 'sort_order', 'id', 'is_sub_category', 'parent_id', 'image']
                 )
-                ->orderBy('is_sub_category', 'asc') 
-                ->orderBy('name', 'asc');     // Sort alphabetically within main and sub-categories
+                ->orderBy('sort_order', 'asc')
+                ->orderBy('is_sub_category', 'asc')
+                ->orderBy('name', 'asc');
 
             return Datatables::of($category)
                 ->addColumn(
@@ -89,6 +90,9 @@ class TaxonomyController extends Controller
                 })
                 ->editColumn('image', function ($row) {
                     return '<div style="display: flex;"><img src="' . $row->image_url . '" alt="Product image" class="product-thumbnail-small"></div>';
+                })
+                ->editColumn('sort_order', function ($row) {
+                    return (int) ($row->sort_order ?? 0);
                 })
                 ->removeColumn('id')
                 ->removeColumn('parent_id')
@@ -191,7 +195,8 @@ class TaxonomyController extends Controller
 
 
         try {
-            $input = $request->only(['name', 'short_code', 'is_main_category', 'category_type', 'description']);
+            $input = $request->only(['name', 'short_code', 'is_main_category', 'category_type', 'description', 'sort_order']);
+            $input['sort_order'] = (int) ($input['sort_order'] ?? 0);
             if (!empty($request->input('is_main_category')) && $request->input('is_main_category') == 1) {
                 $input['is_sub_category'] = 0;
             } else {
@@ -340,47 +345,49 @@ class TaxonomyController extends Controller
 
     public function update(Request $request, $id)
     {
-        if (request()->ajax()) {
-            try {
-                $input = $request->only(['name', 'description']);
-                $business_id = $request->session()->get('user.business_id');
+        try {
+            $business_id = $request->session()->get('user.business_id');
 
-                $category = Category::where('business_id', $business_id)->findOrFail($id);
-                $category->name = $input['name'];
-                $category->description = $input['description'];
-                $category->short_code = $request->input('short_code');
+            $category = Category::where('business_id', $business_id)->findOrFail($id);
 
-                if (!empty($request->input('add_as_sub_cat')) && $request->input('add_as_sub_cat') == 1 && !empty($request->input('parent_id'))) {
-                    $category->parent_id = $request->input('parent_id');
-                } else {
-                    $category->parent_id = 0;
+            $sort_order = is_numeric($request->input('sort_order')) ? (int) $request->input('sort_order') : 0;
+
+            $update_data = [
+                'name' => $request->input('name'),
+                'description' => $request->input('description'),
+                'sort_order' => $sort_order,
+                'short_code' => $request->input('short_code'),
+                'is_sub_category' => !empty($request->input('is_main_category')) ? 0 : 1,
+                'parent_id' => (!empty($request->input('add_as_sub_cat')) && $request->input('add_as_sub_cat') == 1 && !empty($request->input('parent_id')))
+                    ? $request->input('parent_id')
+                    : 0,
+            ];
+
+            $file_name = $this->productUtil->uploadFile($request, 'image', config('constants.product_img_path'), 'image');
+            if (!empty($file_name)) {
+                if (!empty($category->image_path) && file_exists($category->image_path)) {
+                    unlink($category->image_path);
                 }
-
-                // Handle image upload
-                $file_name = $this->productUtil->uploadFile($request, 'image', config('constants.product_img_path'), 'image');
-                if (!empty($file_name)) {
-                    if (!empty($category->image_path) && file_exists($category->image_path)) {
-                        unlink($category->image_path);
-                    }
-                    $category->image = $file_name;
-                }
-
-                $category->save();
-
-                // Handle subcategory assignment using the pivot table
-                $subcategories = $request->input('subcategories', []);
-                // Sync the subcategories with the category (this will add and remove subcategories)
-                $category->subcategories()->sync($subcategories);
-
-                $output = ['success' => true, 'msg' => __("category.updated_success")];
-            } catch (\Exception $e) {
-                \Log::emergency("File:" . $e->getFile() . " Line:" . $e->getLine() . " Message:" . $e->getMessage());
-
-                $output = ['success' => false, 'msg' => __("messages.something_went_wrong")];
+                $update_data['image'] = $file_name;
             }
 
-            return $output;
+            $category->update($update_data);
+
+            $subcategories = $request->input('subcategories', []);
+            $category->subcategories()->sync($subcategories);
+
+            $output = [
+                'success' => true,
+                'msg' => __("category.updated_success"),
+                'sort_order' => $category->fresh()->sort_order,
+            ];
+        } catch (\Exception $e) {
+            \Log::emergency("File:" . $e->getFile() . " Line:" . $e->getLine() . " Message:" . $e->getMessage());
+
+            $output = ['success' => false, 'msg' => __("messages.something_went_wrong")];
         }
+
+        return $output;
     }
 
 
@@ -441,6 +448,8 @@ public function getTaxonomyIndexPage(Request $request)
     $module_category_data = $this->moduleUtil->getTaxonomyData($category_type);
     $categories = Category::where('business_id', $request->session()->get('user.business_id'))
                 ->where('category_type', $category_type)
+                ->orderBy('sort_order', 'asc')
+                ->orderBy('name', 'asc')
                 ->get();
     if ($request->ajax()) {
         return view('taxonomy.ajax_index', 

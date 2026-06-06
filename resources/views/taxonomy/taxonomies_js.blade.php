@@ -64,6 +64,7 @@
                         { data: 'name', name: 'name' },
                         { data: 'sub_categories', name: 'sub_categories' },
                         { data: 'category_type', name: 'category_type' },
+                        { data: 'sort_order', name: 'sort_order' },
                         @if($cat_code_enabled)
                             { data: 'short_code', name: 'short_code' },
                         @endif
@@ -81,64 +82,70 @@
         initializeTaxonomyDataTable();
     });
     $(document).on('submit', 'form#category_add_form', function(e) {
-    e.preventDefault();
-    var form = $(this);
-    let formData = new FormData(this); // Create a FormData object
+        e.preventDefault();
+        var form = $(this);
+        let formData = new FormData(this);
 
-    $.ajax({
-        method: 'POST',
-        url: $(this).attr('action'),
-        data: formData,
-        processData: false, // Prevent jQuery from processing the data
-        contentType: false, // Prevent jQuery from setting content type
-        beforeSend: function(xhr) {
-            __disable_submit_button(form.find('button[type="submit"]'));
-        },
-        success: function(result) {
-            if (result.success === true) {
-                $('div.category_modal').modal('hide');
-                toastr.success(result.msg);
-                // category_table.ajax.reload();
-                window.location.reload();
-            } else {
-                toastr.error(result.msg);
-            }
-        },
+        $.ajax({
+            method: 'POST',
+            url: $(this).attr('action'),
+            data: formData,
+            dataType: 'json',
+            processData: false,
+            contentType: false,
+            beforeSend: function(xhr) {
+                __disable_submit_button(form.find('button[type="submit"]'));
+            },
+            success: function(result) {
+                if (result.success === true) {
+                    $('div.category_modal').modal('hide');
+                    toastr.success(result.msg);
+                    window.location.reload();
+                } else {
+                    toastr.error(result.msg);
+                }
+            },
+        });
     });
-});
+
+    $(document).on('submit', 'form#category_edit_form', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        let formData = new FormData(this);
+
+        if (!formData.has('sort_order')) {
+            formData.append('sort_order', form.find('[name="sort_order"]').val() || 0);
+        }
+
+        $.ajax({
+            method: 'POST',
+            url: $(this).attr('action'),
+            data: formData,
+            dataType: 'json',
+            processData: false,
+            contentType: false,
+            beforeSend: function(xhr) {
+                __disable_submit_button(form.find('button[type="submit"]'));
+            },
+            success: function(result) {
+                if (result.success === true) {
+                    $('div.category_modal').modal('hide');
+                    toastr.success(result.msg);
+                    if (typeof category_table !== 'undefined' && category_table) {
+                        category_table.ajax.reload(null, false);
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    toastr.error(result.msg);
+                }
+            },
+        });
+    });
 
     $(document).on('click', 'button.edit_category_button', function() {
         $('div.category_modal').load($(this).data('href'), function() {
             $(this).modal('show');
-
-            $('form#category_edit_form').submit(function(e) {
-                e.preventDefault();
-                var form = $(this);
-                // var data = form.serialize();
-                let formData = new FormData(this); // Create a FormData object
-
-
-                $.ajax({
-                    method: 'POST',
-                    url: $(this).attr('action'),
-                    data: formData,
-                    processData: false, // Prevent jQuery from processing the data
-                    contentType: false, // Prevent jQuery from setting content type
-                    beforeSend: function(xhr) {
-                        __disable_submit_button(form.find('button[type="submit"]'));
-                    },
-                    success: function(result) {
-                        if (result.success === true) {
-                            $('div.category_modal').modal('hide');
-                            toastr.success(result.msg);
-                            // reload page
-                            window.location.reload();
-                        } else {
-                            toastr.error(result.msg);
-                        }
-                    },
-                });
-            });
         });
     });
 

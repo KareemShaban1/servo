@@ -45,6 +45,7 @@
                             <th>@if(!empty($module_category_data['taxonomy_label'])) {{$module_category_data['taxonomy_label']}} @else @lang( 'category.category' ) @endif</th>
                             <th>@lang( 'lang_v1.sub_categories' )</th>
                             <th>@lang( 'lang_v1.category_type' )</th>
+                            <th>@lang( 'lang_v1.sort_order' )</th>
                             @if($cat_code_enabled)
                                 <th>{{ $module_category_data['taxonomy_code_label'] ?? __( 'category.code' )}}</th>
                             @endif
