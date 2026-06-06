@@ -22,10 +22,11 @@ class CategoryService extends BaseService
 
         try {
 
-            $query = Category::onlyParent()->with('sub_categories')
-            ->productType()
-	->isMainCategory()
-            ->orderBy('sort_order', 'asc')
+            $query = Category::with(['subcategories' => function ($query) {
+                $query->orderBy('sort_order', 'asc')->orderBy('name', 'asc');
+            }])
+            ->productType()->orderBy('sort_order', 'asc')
+            ->orderBy('is_sub_category', 'asc')
             ->orderBy('name', 'asc');
 
             if (!empty($category_id)) {
@@ -50,14 +51,9 @@ class CategoryService extends BaseService
 
         try {
 
-            $query = Category::onlyParent()
-            ->with(['subcategories' => function ($query) {
-                $query->orderBy('sort_order', 'asc')->orderBy('name', 'asc');
-            }])
-          //   ->isMainCategory()
-            ->productType()
-            ->orderBy('sort_order', 'asc')
-            ->orderBy('name', 'asc');
+            $query = Category::onlyParent()->with('sub_categories')
+            ->isMainCategory()
+            ->productType()->latest();
 
             $query = $this->withTrashed($query, $request);
 
