@@ -22,6 +22,8 @@ Route::get('applicationDashboard/home', [HomeController::class, 'index'])
 // products routes
 Route::resource('products', 'ProductController');
 Route::get('/products/stock-history/{id}', 'ProductController@productStockHistory');
+Route::post('/products/update-stock', 'ProductController@updateProductStock');
+Route::post('/products/toggle-flag', 'ProductController@updateProductFlag');
 Route::get('/delete-media/{media_id}', 'ProductController@deleteMedia');
 Route::post('/products/mass-deactivate', 'ProductController@massDeactivate');
 Route::get('/products/activate/{id}', 'ProductController@activate');
@@ -85,6 +87,8 @@ Route::post('/import-opening-stock/store', 'ImportOpeningStockController@store')
 Route::get('selling-price-group/activate-deactivate/{id}', 'SellingPriceGroupController@activateDeactivate');
 Route::get('export-selling-price-group', 'SellingPriceGroupController@export');
 Route::post('import-selling-price-group', 'SellingPriceGroupController@import');
+Route::get('update-product-price', 'SellingPriceGroupController@updateProductPrice')->name('update-product-price');
+
 
 Route::resource('selling-price-group', 'SellingPriceGroupController');
 

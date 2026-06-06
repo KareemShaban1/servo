@@ -381,7 +381,10 @@ class ProductController extends Controller
                 ->leftJoin('categories as c1', 'products.category_id', '=', 'c1.id')
                 ->leftJoin('categories as c2', 'products.sub_category_id', '=', 'c2.id')
                 ->leftJoin('tax_rates', 'products.tax', '=', 'tax_rates.id')
-                ->join('variations as v', 'v.product_id', '=', 'products.id')
+                ->join('variations as v', function ($join) {
+                    $join->on('v.product_id', '=', 'products.id')
+                        ->whereNull('v.deleted_at');
+                })
                 ->leftJoin('variation_location_details as vld', 'vld.variation_id', '=', 'v.id')
                 ->where('products.business_id', $business_id)
                 ->where('products.type', '!=', 'modifier');
@@ -422,18 +425,24 @@ class ProductController extends Controller
                 'products.enable_stock',
                 'products.is_inactive',
                 'products.not_for_selling',
+                'products.active_in_app',
                 'products.product_custom_field1',
                 'products.product_custom_field2',
                 'products.product_custom_field3',
                 'products.product_custom_field4',
                 'products.created_at',
-                DB::raw('SUM(vld.qty_available) as available_stock'),
+                DB::raw('(
+                    SELECT COALESCE(SUM(vld_inner.qty_available), 0)
+                    FROM variations v_inner
+                    INNER JOIN variation_location_details vld_inner ON vld_inner.variation_id = v_inner.id
+                    WHERE v_inner.product_id = products.id
+                    AND v_inner.deleted_at IS NULL
+                ) as available_stock'),
                 DB::raw('MAX(v.sell_price_inc_tax) as max_price'),
                 DB::raw('MIN(v.sell_price_inc_tax) as min_price'),
                 DB::raw('MAX(v.dpp_inc_tax) as max_purchase_price'),
                 DB::raw('MIN(v.dpp_inc_tax) as min_purchase_price')
-            )->latest();
-
+            );
 
             //if woocomerce enabled add field to query
             if ($is_woocommerce) {
@@ -441,15 +450,6 @@ class ProductController extends Controller
             }
 
             $products->groupBy('products.id', 'v.id');
-
-            // Handle current stock calculation dynamically
-            $products->get()->map(function ($product) {
-                $variations = $product->variations;
-                $product->available_stock = $variations->sum(function ($variation) {
-                    return $variation->variation_location_details->sum('qty_available');
-                });
-                return $product;
-            });
 
             $type = request()->get('type', null);
             if (!empty($type)) {
@@ -584,17 +584,29 @@ class ProductController extends Controller
                 ->addColumn('mass_delete', function ($row) {
                     return '<input type="checkbox" class="row-select" value="' . $row->id . '">';
                 })
+                ->addColumn('active_in_app', function ($row) {
+                    $checked = $row->active_in_app == 1 ? 'checked' : '';
+                    $disabled = auth()->user()->can('product.update') ? '' : 'disabled';
+
+                    return '<input type="checkbox" class="product-flag-checkbox" data-product-id="' . $row->id . '" data-field="active_in_app" ' . $checked . ' ' . $disabled . '>';
+                })
+                ->addColumn('not_for_selling_toggle', function ($row) {
+                    $checked = $row->not_for_selling == 1 ? 'checked' : '';
+                    $disabled = auth()->user()->can('product.update') ? '' : 'disabled';
+
+                    return '<input type="checkbox" class="product-flag-checkbox" data-product-id="' . $row->id . '" data-field="not_for_selling" ' . $checked . ' ' . $disabled . '>';
+                })
                 // ->editColumn('current_stock', '@if($enable_stock == 1) {{@number_format($current_stock)}} @else -- @endif {{$unit}}')
                 ->editColumn('current_stock', function ($row) {
-                    // Check if stock is enabled
-                    if ($row->enable_stock == 1) {
-                        // Format the current stock value and return it with the unit
-                        return number_format($row->available_stock) . ' ' . $row->unit;
-                    } else {
-                        // If stock is disabled, return '--' with the unit
-                        // return '-- ' . $row->unit;
+                    if ($row->enable_stock != 1) {
                         return __('lang_v1.not_enabled_stock');
                     }
+
+                    $stock = $row->variations->sum(function ($variation) {
+                        return $variation->variation_location_details->sum('qty_available');
+                    });
+
+                    return number_format($stock) . ' ' . $row->unit;
                 })
                 ->addColumn(
                     'purchase_price',
@@ -610,6 +622,15 @@ class ProductController extends Controller
                     })
                         ->orWhere('products.sku', 'like', "%{$keyword}%");
                 })
+                ->orderColumn('available_stock', '(
+                    SELECT COALESCE(SUM(vld_inner.qty_available), 0)
+                    FROM variations v_inner
+                    INNER JOIN variation_location_details vld_inner ON vld_inner.variation_id = v_inner.id
+                    WHERE v_inner.product_id = products.id
+                    AND v_inner.deleted_at IS NULL
+                ) $1')
+                ->orderColumn('max_price', 'MAX(v.sell_price_inc_tax) $1')
+                ->orderColumn('max_purchase_price', 'MAX(v.dpp_inc_tax) $1')
                 ->setRowAttr([
                     'data-href' => function ($row) {
                         if (auth()->user()->can("product.view")) {
@@ -619,7 +640,7 @@ class ProductController extends Controller
                         }
                     }
                 ])
-                ->rawColumns(['action', 'image', 'mass_delete', 'product', 'selling_price', 'purchase_price', 'category'])
+                ->rawColumns(['action', 'image', 'mass_delete', 'product', 'selling_price', 'purchase_price', 'category', 'active_in_app', 'not_for_selling_toggle'])
                 ->make(true);
         }
 
@@ -2596,8 +2617,11 @@ class ProductController extends Controller
             $stock_details = $this->productUtil->getVariationStockDetails($business_id, $id, request()->input('location_id'));
             $stock_history = $this->productUtil->getVariationStockHistory($business_id, $id, request()->input('location_id'));
 
+            $variation_id = $id;
+            $location_id = request()->input('location_id');
+
             return view('product.stock_history_details')
-                ->with(compact('stock_details', 'stock_history'));
+                ->with(compact('stock_details', 'stock_history', 'variation_id', 'location_id'));
         }
 
         $product = Product::where('business_id', $business_id)
@@ -2610,6 +2634,122 @@ class ProductController extends Controller
 
         return view('product.stock_history')
             ->with(compact('product', 'business_locations'));
+    }
+
+    /**
+     * Toggle active_in_app or not_for_selling from the product list.
+     */
+    public function updateProductFlag(Request $request)
+    {
+        if (!auth()->user()->can('product.update')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'product_id' => 'required|integer',
+            'field' => 'required|in:active_in_app,not_for_selling',
+            'value' => 'required|in:0,1',
+        ]);
+
+        try {
+            $business_id = $request->session()->get('user.business_id');
+            $product = Product::where('business_id', $business_id)
+                ->findOrFail($request->input('product_id'));
+
+            $field = $request->input('field');
+            $product->$field = (int) $request->input('value');
+            $product->save();
+
+            return response()->json([
+                'success' => true,
+                'msg' => __('lang_v1.updated_succesfully'),
+            ]);
+        } catch (\Exception $e) {
+            Log::emergency('File:' . $e->getFile() . 'Line:' . $e->getLine() . 'Message:' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'msg' => __('messages.something_went_wrong'),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update current stock for a variation at a location.
+     */
+    public function updateProductStock(Request $request)
+    {
+        if (!auth()->user()->can('product.update')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'variation_id' => 'required|integer',
+            'location_id' => 'required|integer',
+            'stock' => 'required',
+        ]);
+
+        try {
+            $business_id = $request->session()->get('user.business_id');
+            $variation_id = $request->input('variation_id');
+            $location_id = $request->input('location_id');
+            $new_stock = $this->productUtil->num_uf($request->input('stock'));
+
+            $variation = Variation::whereHas('product', function ($q) use ($business_id) {
+                $q->where('business_id', $business_id);
+            })->with('product')->findOrFail($variation_id);
+
+            $location = BusinessLocation::where('business_id', $business_id)
+                ->findOrFail($location_id);
+
+            $vld = VariationLocationDetails::where('variation_id', $variation_id)
+                ->where('location_id', $location_id)
+                ->where('product_id', $variation->product_id)
+                ->first();
+
+            $old_stock = $vld->qty_available ?? 0;
+
+            if (empty($vld)) {
+                $vld = VariationLocationDetails::create([
+                    'product_id' => $variation->product_id,
+                    'location_id' => $location_id,
+                    'variation_id' => $variation_id,
+                    'product_variation_id' => $variation->product_variation_id,
+                    'qty_available' => $new_stock,
+                ]);
+            } else {
+                $vld->qty_available = $new_stock;
+                $vld->save();
+            }
+
+            $this->moduleUtil->activityLog(
+                $variation->product,
+                'stock_updated',
+                null,
+                [
+                    'variation_id' => $variation_id,
+                    'variation_name' => $variation->name,
+                    'location_id' => $location_id,
+                    'location_name' => $location->name,
+                    'old' => ['qty_available' => $old_stock],
+                    'attributes' => ['qty_available' => $new_stock],
+                    'update_note' => __('report.current_stock') . ': ' . $this->productUtil->num_f($old_stock, false, null, true) . ' → ' . $this->productUtil->num_f($new_stock, false, null, true) . ' @ ' . $location->name,
+                ],
+                false
+            );
+
+            return response()->json([
+                'success' => true,
+                'msg' => __('lang_v1.updated_succesfully'),
+            ]);
+        } catch (\Exception $e) {
+            Log::emergency('File:' . $e->getFile() . 'Line:' . $e->getLine() . 'Message:' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'msg' => __('messages.something_went_wrong'),
+            ], 500);
+        }
     }
 
     /**

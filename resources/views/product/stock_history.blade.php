@@ -73,5 +73,44 @@
        $(document).on('change', '#variation_id, #location_id', function(){
             load_stock_history($('#variation_id').val(), $('#location_id').val());
        });
+
+       $(document).on('click', '#update_current_stock_btn', function() {
+            var input = $('#current_stock_input');
+            var variation_id = input.data('variation-id');
+            var location_id = input.data('location-id');
+            var stock = input.val();
+            var btn = $(this);
+
+            btn.prop('disabled', true);
+
+            $.ajax({
+                method: 'POST',
+                url: '/products/update-stock',
+                dataType: 'json',
+                data: {
+                    variation_id: variation_id,
+                    location_id: location_id,
+                    stock: stock
+                },
+                success: function(result) {
+                    if (result.success) {
+                        toastr.success(result.msg);
+                        load_stock_history(variation_id, location_id);
+                    } else {
+                        toastr.error(result.msg);
+                    }
+                },
+                error: function(xhr) {
+                    var msg = 'Something went wrong, please try again later';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        msg = xhr.responseJSON.msg;
+                    }
+                    toastr.error(msg);
+                },
+                complete: function() {
+                    btn.prop('disabled', false);
+                }
+            });
+       });
    </script>
 @endsection

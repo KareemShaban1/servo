@@ -1820,8 +1820,6 @@ class ProductUtil extends Util
         }
 
         //TODO::Check if result is correct after changing LEFT JOIN to INNER JOIN
-        $pl_query_string = $this->get_pl_quantity_sum_string('pl');
-
         if ($for == 'view_product' && !empty(request()->input('product_id'))) {
             $location_filter = 'AND transactions.location_id=l.id';
         }
@@ -1841,10 +1839,6 @@ class ProductUtil extends Util
                   JOIN stock_adjustment_lines AS SAL ON transactions.id=SAL.transaction_id
                   WHERE transactions.type='stock_adjustment' AND transactions.location_id=vld.location_id 
                     AND (SAL.variation_id=variations.id)) as total_adjusted"),
-            DB::raw("(SELECT SUM( COALESCE(pl.quantity - ($pl_query_string), 0) * purchase_price_inc_tax) FROM transactions 
-                  JOIN purchase_lines AS pl ON transactions.id=pl.transaction_id
-                  WHERE (transactions.status='received' OR transactions.type='purchase_return')  AND transactions.location_id=vld.location_id 
-                  AND (pl.variation_id=variations.id)) as stock_price"),
             DB::raw("SUM(vld.qty_available) as stock"),
             'variations.sub_sku as sku',
             'p.name as product',
@@ -1853,6 +1847,7 @@ class ProductUtil extends Util
             'units.short_name as unit',
             'p.enable_stock as enable_stock',
             'variations.sell_price_inc_tax as unit_price',
+            'variations.dpp_inc_tax as unit_purchase_price',
             'pv.name as product_variation',
             'variations.name as variation_name',
             'l.name as location_name',

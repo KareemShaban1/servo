@@ -391,32 +391,46 @@ class ReportController extends Controller
 
                     return $html;
                 })
-                ->editColumn('stock_price', function ($row) {
-                    $html = '<span class="display_currency total_stock_price" data-currency_symbol=true data-orig-value="'
-                        . $row->stock_price . '">'
-                        . $row->stock_price . '</span>';
+                ->editColumn('unit_purchase_price', function ($row) {
+                    if (!auth()->user()->can('view_purchase_price')) {
+                        return '--';
+                    }
 
-                    return $html;
+                    $unit_purchase_price = (float) ($row->unit_purchase_price ?? 0);
+
+                    return '<span class="display_currency unit_purchase_price" data-currency_symbol=true data-orig-value="'
+                        . $unit_purchase_price . '">' . $unit_purchase_price . '</span>';
+                })
+                ->editColumn('stock_price', function ($row) {
+                    $stock = (float) ($row->stock ?: 0);
+                    $unit_purchase_price = (float) ($row->unit_purchase_price ?? 0);
+                    $stock_price = $stock * $unit_purchase_price;
+
+                    return '<span class="display_currency total_stock_price" data-currency_symbol=true data-orig-value="'
+                        . $stock_price . '">' . $stock_price . '</span>';
                 })
                 ->editColumn('stock_value_by_sale_price', function ($row) {
-                    $stock = $row->stock ? $row->stock : 0 ;
-                    $unit_selling_price = (float)$row->group_price > 0 ? $row->group_price : $row->unit_price;
+                    $stock = (float) ($row->stock ?: 0);
+                    $unit_selling_price = (float) ($row->unit_price ?? 0);
                     $stock_price = $stock * $unit_selling_price;
-                    return  '<span class="stock_value_by_sale_price display_currency" data-orig-value="' . (float)$stock_price . '" data-currency_symbol=true > ' . (float)$stock_price . '</span>';
+
+                    return '<span class="stock_value_by_sale_price display_currency" data-orig-value="' . $stock_price . '" data-currency_symbol=true > ' . $stock_price . '</span>';
                 })
                 ->addColumn('potential_profit', function ($row) {
-                    $stock = $row->stock ? $row->stock : 0 ;
-                    $unit_selling_price = (float)$row->group_price > 0 ? $row->group_price : $row->unit_price;
+                    $stock = (float) ($row->stock ?: 0);
+                    $unit_selling_price = (float) ($row->unit_price ?? 0);
+                    $unit_purchase_price = (float) ($row->unit_purchase_price ?? 0);
                     $stock_price_by_sp = $stock * $unit_selling_price;
-                    $potential_profit = $stock_price_by_sp - $row->stock_price;
+                    $stock_price_by_pp = $stock * $unit_purchase_price;
+                    $potential_profit = $stock_price_by_sp - $stock_price_by_pp;
 
-                    return  '<span class="potential_profit display_currency" data-orig-value="' . (float)$potential_profit . '" data-currency_symbol=true > ' . (float)$potential_profit . '</span>';
+                    return '<span class="potential_profit display_currency" data-orig-value="' . $potential_profit . '" data-currency_symbol=true > ' . $potential_profit . '</span>';
                 })
                 ->removeColumn('enable_stock')
                 ->removeColumn('unit')
                 ->removeColumn('id');
 
-            $raw_columns  = ['unit_price', 'total_transfered', 'total_sold',
+            $raw_columns  = ['unit_price', 'unit_purchase_price', 'total_transfered', 'total_sold',
                     'total_adjusted', 'stock', 'stock_price', 'stock_value_by_sale_price', 'potential_profit'];
 
             if ($show_manufacturing_data) {

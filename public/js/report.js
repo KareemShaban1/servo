@@ -79,8 +79,11 @@ $(document).ready(function() {
             { data: 'product', name: 'p.name' },
             { data: 'location_name', name: 'l.name' },
             { data: 'unit_price', name: 'variations.sell_price_inc_tax' },
-            { data: 'stock', name: 'stock', searchable: false },
         ];
+        if ($('th.unit_purchase_price').length) {
+            stock_report_cols.push({ data: 'unit_purchase_price', name: 'variations.dpp_inc_tax', searchable: false });
+        }
+        stock_report_cols.push({ data: 'stock', name: 'stock', searchable: false });
         if ($('th.stock_price').length) {
             stock_report_cols.push({ data: 'stock_price', name: 'stock_price', searchable: false });
             stock_report_cols.push({ data: 'stock_value_by_sale_price', name: 'stock_value_by_sale_price', searchable: false, orderable: false });

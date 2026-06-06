@@ -145,6 +145,13 @@ class AdminSidebarMenu
                             ['icon' => 'fa fas fa-plus-circle', 'active' => request()->segment(1) == 'products' && request()->segment(2) == 'create']
                         );
                     }
+		 if (auth()->user()->can('product.update')) {
+                            $sub->url(
+                                action('SellingPriceGroupController@updateProductPrice'),
+                                __('lang_v1.update_product_price'),
+                                ['icon' => '', 'active' => request()->segment(1) == 'update-product-price']
+                            );
+                        }
                     if (auth()->user()->can('product.view')) {
                         $sub->url(
                             action('LabelsController@show'),

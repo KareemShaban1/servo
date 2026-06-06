@@ -68,7 +68,24 @@
 			<tr>
 				<th>@lang('report.current_stock')</th>
 				<td>
-					<span class="display_currency" data-is_quantity="true">{{$stock_details['current_stock']}}</span> {{$stock_details['unit']}}
+					@can('product.update')
+						<div class="input-group" style="max-width: 220px;">
+							<input type="text"
+								class="form-control input_number"
+								id="current_stock_input"
+								value="{{@format_quantity($stock_details['current_stock'])}}"
+								data-variation-id="{{$variation_id}}"
+								data-location-id="{{$location_id}}">
+							<span class="input-group-addon">{{$stock_details['unit']}}</span>
+							<span class="input-group-btn">
+								<button type="button" class="btn btn-primary btn-sm" id="update_current_stock_btn">
+									@lang('messages.update')
+								</button>
+							</span>
+						</div>
+					@else
+						<span class="display_currency" data-is_quantity="true">{{$stock_details['current_stock']}}</span> {{$stock_details['unit']}}
+					@endcan
 				</td>
 			</tr>
 		</table>

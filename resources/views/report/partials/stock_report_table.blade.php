@@ -5,6 +5,9 @@
             <th>@lang('business.product')</th>
             <th>@lang('sale.location')</th>
             <th>@lang('sale.unit_price')</th>
+            @can('view_purchase_price')
+            <th class="unit_purchase_price">@lang('lang_v1.purchase_price')</th>
+            @endcan
             <th>@lang('report.current_stock')</th>
             @can('view_product_stock_value')
             <th class="stock_price">@lang('lang_v1.total_stock_price') <br><small>(@lang('lang_v1.by_purchase_price'))</small></th>
@@ -21,7 +24,7 @@
     </thead>
     <tfoot>
         <tr class="bg-gray font-17 text-center footer-total">
-            <td colspan="4"><strong>@lang('sale.total'):</strong></td>
+            <td colspan="{{ auth()->user()->can('view_purchase_price') ? 5 : 4 }}"><strong>@lang('sale.total'):</strong></td>
             <td class="footer_total_stock"></td>
             @can('view_product_stock_value')
             <td class="footer_total_stock_price"></td>
