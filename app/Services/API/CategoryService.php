@@ -53,7 +53,9 @@ class CategoryService extends BaseService
 
             $query = Category::onlyParent()->with('sub_categories')
             ->isMainCategory()
-            ->productType()->latest();
+            ->productType()->orderBy('sort_order', 'asc')
+          //   ->orderBy('is_sub_category', 'asc')
+            ->orderBy('name', 'asc');
 
             $query = $this->withTrashed($query, $request);
 
