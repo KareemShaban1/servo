@@ -26,7 +26,6 @@ class CategoryService extends BaseService
             ->productType()
 	// ->isMainCategory()
             ->orderBy('sort_order', 'asc')
-            ->orderBy('is_sub_category', 'asc')
             ->orderBy('name', 'asc');
 
             if (!empty($category_id)) {
