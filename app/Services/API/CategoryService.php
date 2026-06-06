@@ -26,6 +26,7 @@ class CategoryService extends BaseService
                 $query->orderBy('sort_order', 'asc')->orderBy('name', 'asc');
             }])
             ->productType()
+	->isMainCategory()
             ->orderBy('sort_order', 'asc')
             ->orderBy('is_sub_category', 'asc')
             ->orderBy('name', 'asc');
