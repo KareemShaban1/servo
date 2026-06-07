@@ -8,6 +8,7 @@ use App\Http\Resources\Product\ProductResource;
 use App\Http\Resources\Product\ProductWithoutAuthCollection;
 use App\Http\Resources\Product\ProductWithoutAuthResource;
 use App\Models\Category;
+use App\Models\Client;
 use App\Models\Product;
 use App\Models\Variation;
 use Illuminate\Database\Eloquent\Builder;
@@ -160,6 +161,7 @@ class ProductService extends BaseService
     /**
      * sort_by: name | price | created_at
      * sort: asc | desc (defaults to desc for created_at, asc for name/price)
+     * price sort uses the authenticated client's selling price group, falling back to sell_price_inc_tax.
      */
     private function applyProductListSorting(Builder $query, Request $request): void
     {
@@ -175,11 +177,7 @@ class ProductService extends BaseService
                 $query->orderBy('products.name', $sort);
                 break;
             case 'price':
-                $priceSubquery = Variation::query()
-                    ->selectRaw('MIN(sell_price_inc_tax)')
-                    ->whereColumn('variations.product_id', 'products.id')
-                    ->whereNull('variations.deleted_at');
-
+                $priceSubquery = $this->buildProductMinPriceSubquery();
                 $query->orderBy($priceSubquery, $sort);
                 break;
             case 'created_at':
@@ -191,6 +189,45 @@ class ProductService extends BaseService
         }
     }
 
+
+    /**
+     * Minimum variation price per product: client price group when set, else sell_price_inc_tax.
+     */
+    private function buildProductMinPriceSubquery()
+    {
+        $priceGroupId = $this->getClientSellingPriceGroupId();
+
+        $subquery = Variation::query()
+            ->whereColumn('variations.product_id', 'products.id')
+            ->whereNull('variations.deleted_at');
+
+        if ($priceGroupId) {
+            $subquery->leftJoin('variation_group_prices as client_group_prices', function ($join) use ($priceGroupId) {
+                $join->on('client_group_prices.variation_id', '=', 'variations.id')
+                    ->where('client_group_prices.price_group_id', '=', $priceGroupId);
+            })
+            ->selectRaw('MIN(COALESCE(client_group_prices.price_inc_tax, variations.sell_price_inc_tax))');
+        } else {
+            $subquery->selectRaw('MIN(variations.sell_price_inc_tax)');
+        }
+
+        return $subquery;
+    }
+
+    private function getClientSellingPriceGroupId(): ?int
+    {
+        $user = Auth::user();
+
+        if (!$user instanceof Client) {
+            return null;
+        }
+
+        $user->loadMissing('contact.customer_group');
+
+        $priceGroupId = $user->contact?->customer_group?->selling_price_group_id;
+
+        return $priceGroupId ? (int) $priceGroupId : null;
+    }
 
     public function listWithoutAuth(Request $request)
     {

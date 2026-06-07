@@ -29,7 +29,7 @@ class Product extends Model
     'barcode_type','expiry_period','expiry_period_type','enable_sr_no','weight',
     'product_custom_field1','product_custom_field2','product_custom_field3','product_custom_field4',
     'image','product_description','created_by','warranty_id','is_inactive','not_for_selling',
-    'active_in_app'];
+    'active_in_app','show_in_tab3een'];
 
 
 

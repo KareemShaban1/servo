@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\FcmController;
 use App\Http\Controllers\Api\ClientNotificationController;
 use App\Http\Controllers\Api\DeliveryNotificationController;
 use App\Http\Controllers\Api\SuggestionProductController;
+use App\Http\Controllers\Api\Tab3eenController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -34,6 +35,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+
+Route::get('tab3een', [Tab3eenController::class, 'index']);
 
 Route::get('categories/{category_id?}', [CategoryController::class, 'index']);
 Route::get('parent_categories', [CategoryController::class, 'parentCategories']);
