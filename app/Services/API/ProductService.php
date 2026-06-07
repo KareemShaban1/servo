@@ -224,7 +224,9 @@ class ProductService extends BaseService
 
         $user->loadMissing('contact.customer_group');
 
-        $priceGroupId = $user->contact?->customer_group?->selling_price_group_id;
+        $contact = $user->contact;
+        $customerGroup = $contact ? $contact->customer_group : null;
+        $priceGroupId = $customerGroup ? $customerGroup->selling_price_group_id : null;
 
         return $priceGroupId ? (int) $priceGroupId : null;
     }
