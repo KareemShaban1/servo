@@ -51,11 +51,14 @@ class ProductController extends Controller
             return $products;
         }
 
-        return $products->additional([
-            'code' => 200,
-            'status' => 'success',
-            'message' =>  __('message.Products have been retrieved successfully'),
-        ]);
+        return $products->additional(array_merge(
+            $products->additional ?? [],
+            [
+                'code' => 200,
+                'status' => 'success',
+                'message' => __('message.Products have been retrieved successfully'),
+            ]
+        ));
     }
 
     /**
