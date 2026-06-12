@@ -123,19 +123,9 @@ class ProductService extends BaseService
             $inStock = filter_var($request->in_stock, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
 
             if ($inStock === true) {
-                $query->whereHas('variations.variation_location_details', function ($q) {
-                    $q->where('qty_available', '>', 0)
-                        ->whereHas('location', function ($locationQuery) {
-                            $locationQuery->where('is_active', 1);
-                        });
-                });
+                $this->applyInStockFilter($query, true);
             } elseif ($inStock === false) {
-                $query->whereDoesntHave('variations.variation_location_details', function ($q) {
-                    $q->where('qty_available', '>', 0)
-                        ->whereHas('location', function ($locationQuery) {
-                            $locationQuery->where('is_active', 1);
-                        });
-                });
+                $this->applyInStockFilter($query, false);
             }
         }
 
@@ -157,6 +147,37 @@ class ProductService extends BaseService
         }
 
         $this->applyProductListSorting($query, $request);
+    }
+
+    /**
+     * Filter by total available stock (matches ProductResource current_stock calculation).
+     */
+    private function applyInStockFilter(Builder $query, bool $inStock): void
+    {
+        $stockSubquery = $this->availableStockSubquerySql();
+
+        if ($inStock) {
+            $query->whereRaw($stockSubquery . ' > 0');
+        } else {
+            $query->whereRaw($stockSubquery . ' <= 0');
+        }
+    }
+
+    /**
+     * Sum qty_available across variations at active app locations for a product.
+     */
+    private function availableStockSubquerySql(): string
+    {
+        return '(
+            SELECT COALESCE(SUM(vld.qty_available), 0)
+            FROM variations AS stock_variations
+            INNER JOIN variation_location_details AS vld ON vld.variation_id = stock_variations.id
+            INNER JOIN business_locations AS bl ON bl.id = vld.location_id
+                AND bl.is_active = 1
+                AND bl.active_in_app = 1
+            WHERE stock_variations.product_id = products.id
+                AND stock_variations.deleted_at IS NULL
+        )';
     }
 
     /**
