@@ -16,7 +16,7 @@ return [
     |
     */
 
-    'driver' => env('MAIL_DRIVER', 'smtp'),
+    'driver' => env('MAIL_MAILER', env('MAIL_DRIVER', 'smtp')),
 
     /*
     |--------------------------------------------------------------------------
@@ -72,6 +72,30 @@ return [
     */
 
     'encryption' => env('MAIL_ENCRYPTION', 'tls'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | SMTP Timeout (seconds)
+    |--------------------------------------------------------------------------
+    */
+
+    'timeout' => env('MAIL_TIMEOUT', 60),
+
+    /*
+    |--------------------------------------------------------------------------
+    | SMTP Stream SSL Options
+    |--------------------------------------------------------------------------
+    | Helps on some shared hosts with SSL certificate verification issues.
+    | Does not fix blocked outbound SMTP ports (connection timeout).
+    */
+
+    'stream' => [
+        'ssl' => [
+            'allow_self_signed' => env('MAIL_ALLOW_SELF_SIGNED', false),
+            'verify_peer' => env('MAIL_VERIFY_PEER', true),
+            'verify_peer_name' => env('MAIL_VERIFY_PEER_NAME', true),
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------

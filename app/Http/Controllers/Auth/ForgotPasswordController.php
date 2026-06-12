@@ -62,13 +62,13 @@ class ForgotPasswordController extends Controller
         try {
             Mail::send('auth.email.forget-password', ['token' => $token], function ($message) use ($request) {
 
+                $message->from(config('mail.from.address'), config('mail.from.name'));
                 $message->to($request->email);
-
                 $message->subject('Reset Password');
 
             });
         } catch (\Throwable $e) {
-            Log::error('Client password reset: mail send failed', [
+            $logContext = [
                 'exception' => get_class($e),
                 'message' => $e->getMessage(),
                 'code' => $e->getCode(),
@@ -80,7 +80,16 @@ class ForgotPasswordController extends Controller
                 'mail_encryption' => config('mail.encryption'),
                 'mail_from_address' => config('mail.from.address'),
                 'recipient_email' => $request->email,
-            ]);
+            ];
+
+            if (stripos($e->getMessage(), 'timed out') !== false
+                || stripos($e->getMessage(), 'could not be established') !== false) {
+                $logContext['hint'] = 'Server cannot reach SMTP host. Shared hosting often blocks ports 465/587 to Gmail. '
+                    . 'Try MAIL_PORT=587 with MAIL_ENCRYPTION=tls, use your hosting provider SMTP (mail.yourdomain.com), '
+                    . 'or a service like Mailgun/SendGrid. Gmail requires an App Password (not your login password).';
+            }
+
+            Log::error('Client password reset: mail send failed', $logContext);
 
             DB::table('password_resets')
                 ->where('email', $request->email)
