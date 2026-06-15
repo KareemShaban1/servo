@@ -3471,6 +3471,101 @@ class ReportController extends Controller
         ];
     }
 
+    /**
+     * Closing stock details report - per product breakdown matching header totals.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getClosingStockDetails(Request $request)
+    {
+        if (!auth()->user()->can('stock_report.view') || !auth()->user()->can('view_product_stock_value')) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        $business_id = $request->session()->get('user.business_id');
+
+        if ($request->ajax()) {
+            $filters = $request->only(['location_id', 'category_id', 'sub_category_id', 'brand_id', 'unit_id']);
+            $location_id = $filters['location_id'] ?? null;
+            $end_date = \Carbon::now()->format('Y-m-d');
+
+            $products = $this->transactionUtil->getClosingStockProductDetails(
+                $business_id,
+                $end_date,
+                $location_id,
+                $filters
+            );
+
+            $closing_stock_by_pp = $this->transactionUtil->getOpeningClosingStock(
+                $business_id,
+                $end_date,
+                $location_id,
+                false,
+                false,
+                $filters
+            );
+            $closing_stock_by_sp = $this->transactionUtil->getOpeningClosingStock(
+                $business_id,
+                $end_date,
+                $location_id,
+                false,
+                true,
+                $filters
+            );
+            $potential_profit = $closing_stock_by_sp - $closing_stock_by_pp;
+
+            $datatable = Datatables::of($products)
+                ->editColumn('product', function ($row) {
+                    $name = $row->product;
+                    if ($row->type == 'variable') {
+                        $name .= ' - ' . $row->product_variation . '-' . $row->variation_name;
+                    }
+
+                    return $name;
+                })
+                ->editColumn('stock_qty', function ($row) {
+                    $stock_qty = (float) ($row->stock_qty ?: 0);
+
+                    return '<span data-is_quantity="true" class="display_currency" data-currency_symbol=false data-orig-value="' . $stock_qty . '" data-unit="' . $row->unit . '">' . $stock_qty . '</span> ' . $row->unit;
+                })
+                ->editColumn('stock_value_by_pp', function ($row) {
+                    $value = (float) ($row->stock_value_by_pp ?: 0);
+
+                    return '<span class="display_currency stock_value_by_pp" data-currency_symbol=true data-orig-value="' . $value . '">' . $value . '</span>';
+                })
+                ->editColumn('stock_value_by_sp', function ($row) {
+                    $value = (float) ($row->stock_value_by_sp ?: 0);
+
+                    return '<span class="display_currency stock_value_by_sp" data-currency_symbol=true data-orig-value="' . $value . '">' . $value . '</span>';
+                })
+                ->addColumn('potential_profit', function ($row) {
+                    $value = (float) (($row->stock_value_by_sp ?: 0) - ($row->stock_value_by_pp ?: 0));
+
+                    return '<span class="display_currency potential_profit" data-currency_symbol=true data-orig-value="' . $value . '">' . $value . '</span>';
+                })
+                ->removeColumn('type')
+                ->removeColumn('product_variation')
+                ->removeColumn('variation_name')
+                ->removeColumn('unit');
+
+            return $datatable->with([
+                'closing_stock_by_pp' => $closing_stock_by_pp,
+                'closing_stock_by_sp' => $closing_stock_by_sp,
+                'potential_profit' => $potential_profit,
+            ])
+                ->rawColumns(['stock_qty', 'stock_value_by_pp', 'stock_value_by_sp', 'potential_profit'])
+                ->make(true);
+        }
+
+        $categories = Category::forDropdown($business_id, 'product');
+        $brands = Brand::forDropdown($business_id);
+        $units = Unit::where('business_id', $business_id)->pluck('short_name', 'id');
+        $business_locations = BusinessLocation::forDropdown($business_id, true);
+
+        return view('report.closing_stock_details')
+            ->with(compact('categories', 'brands', 'units', 'business_locations'));
+    }
+
     public function activityLog()
     {
 

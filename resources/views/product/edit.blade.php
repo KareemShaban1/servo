@@ -232,13 +232,22 @@
         </div>
 
         <div class="col-sm-4">
-            <div class="checkbox">
-              <label>
-                {!! Form::checkbox('active_in_app', 1, $product->active_in_app, ['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.enable_active_in_app')</strong>
-              </label>
-              @show_tooltip(__('lang_v1.tooltip_sr_no'))
-            </div>
-          </div></h4>
+          <div class="form-group">
+            <br>
+            <label>
+              {!! Form::checkbox('active_in_app', 1, $product->active_in_app, ['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.enable_active_in_app')</strong>
+            </label> @show_tooltip(__('lang_v1.tooltip_sr_no'))
+          </div>
+        </div>
+
+        <div class="col-sm-4">
+          <div class="form-group">
+            <br>
+            <label>
+              {!! Form::checkbox('show_in_tab3een', 1, $product->show_in_tab3een, ['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.show_in_tab3een')</strong>
+            </label> @show_tooltip(__('lang_v1.tooltip_show_in_tab3een'))
+          </div>
+        </div>
 
         <div class="clearfix"></div>
 

@@ -231,6 +231,15 @@
           </div>
         </div>
 
+        <div class="col-sm-4">
+          <div class="form-group">
+            <br>
+            <label>
+              {!! Form::checkbox('show_in_tab3een', 1, !(empty($duplicate_product)) ? $duplicate_product->show_in_tab3een : false, ['class' => 'input-icheck']); !!} <strong>@lang('lang_v1.show_in_tab3een')</strong>
+            </label> @show_tooltip(__('lang_v1.tooltip_show_in_tab3een'))
+          </div>
+        </div>
+
         <div class="clearfix"></div>
 
         <!-- Rack, Row & position number -->

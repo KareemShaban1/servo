@@ -549,6 +549,13 @@ class AdminSidebarMenu
                                 __('report.stock_report'),
                                 ['icon' => 'fa fas fa-hourglass-half', 'active' => request()->segment(2) == 'stock-report']
                             );
+                            if (auth()->user()->can('view_product_stock_value')) {
+                                $sub->url(
+                                    action('ReportController@getClosingStockDetails'),
+                                    __('lang_v1.closing_stock_details_report'),
+                                    ['icon' => 'fa fas fa-list', 'active' => request()->segment(2) == 'closing-stock-details']
+                                );
+                            }
                             if (session('business.enable_product_expiry') == 1) {
                                 $sub->url(
                                     action('ReportController@getStockExpiryReport'),

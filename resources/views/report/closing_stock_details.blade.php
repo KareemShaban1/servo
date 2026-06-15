@@ -1,11 +1,11 @@
 @extends('layouts.app')
-@section('title', __('report.stock_report'))
+@section('title', __('lang_v1.closing_stock_details_report'))
 
 @section('content')
 
 <!-- Content Header (Page header) -->
 <section class="content-header">
-    <h1>{{ __('report.stock_report')}}</h1>
+    <h1>{{ __('lang_v1.closing_stock_details_report') }}</h1>
 </section>
 
 <!-- Main content -->
@@ -13,7 +13,7 @@
     <div class="row">
         <div class="col-md-12">
             @component('components.filters', ['title' => __('report.filters')])
-              {!! Form::open(['url' => action('ReportController@getStockReport'), 'method' => 'get', 'id' => 'stock_report_filter_form' ]) !!}
+              {!! Form::open(['url' => action('ReportController@getClosingStockDetails'), 'method' => 'get', 'id' => 'closing_stock_details_filter_form' ]) !!}
                 <div class="col-md-3">
                     <div class="form-group">
                         {!! Form::label('location_id',  __('purchase.business_location') . ':') !!}
@@ -44,58 +44,55 @@
                         {!! Form::select('unit', $units, null, ['placeholder' => __('messages.all'), 'class' => 'form-control select2', 'style' => 'width:100%']); !!}
                     </div>
                 </div>
-                @if($show_manufacturing_data)
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <br>
-                            <div class="checkbox">
-                                <label>
-                                  {!! Form::checkbox('only_mfg', 1, false, 
-                                  [ 'class' => 'input-icheck', 'id' => 'only_mfg_products']); !!} {{ __('manufacturing::lang.only_mfg_products') }}
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                @endif
                 {!! Form::close() !!}
             @endcomponent
         </div>
     </div>
-    @can('view_product_stock_value')
     <div class="row">
         <div class="col-md-12">
             @component('components.widget', ['class' => 'box-solid'])
-            <div class="row">
-                <div class="col-md-10">
-                    <table class="table no-border">
-                        <tr>
-                            <td>@lang('report.closing_stock') (@lang('lang_v1.by_purchase_price'))</td>
-                            <td>@lang('report.closing_stock') (@lang('lang_v1.by_sale_price'))</td>
-                            <td>@lang('lang_v1.potential_profit')</td>
-                            <td>@lang('lang_v1.profit_margin')</td>
-                        </tr>
-                        <tr>
-                            <td><h3 id="closing_stock_by_pp" class="mb-0 mt-0"></h3></td>
-                            <td><h3 id="closing_stock_by_sp" class="mb-0 mt-0"></h3></td>
-                            <td><h3 id="potential_profit" class="mb-0 mt-0"></h3></td>
-                            <td><h3 id="profit_margin" class="mb-0 mt-0"></h3></td>
-                        </tr>
-                    </table>
-                </div>
-                <div class="col-md-2 text-left">
-                    <a href="{{ action('ReportController@getClosingStockDetails') }}" class="btn btn-primary btn-sm">
-                        <i class="fa fa-list"></i> @lang('lang_v1.view_closing_stock_details')
-                    </a>
-                </div>
-            </div>
+            <p class="text-muted">@lang('lang_v1.closing_stock_details_help')</p>
+            <table class="table no-border">
+                <tr>
+                    <td>@lang('report.closing_stock') (@lang('lang_v1.by_purchase_price'))</td>
+                    <td>@lang('report.closing_stock') (@lang('lang_v1.by_sale_price'))</td>
+                    <td>@lang('lang_v1.potential_profit')</td>
+                </tr>
+                <tr>
+                    <td><h3 id="closing_stock_by_pp" class="mb-0 mt-0"></h3></td>
+                    <td><h3 id="closing_stock_by_sp" class="mb-0 mt-0"></h3></td>
+                    <td><h3 id="potential_profit" class="mb-0 mt-0"></h3></td>
+                </tr>
+            </table>
             @endcomponent
         </div>
     </div>
-    @endcan
     <div class="row">
         <div class="col-md-12">
             @component('components.widget', ['class' => 'box-solid'])
-                @include('report.partials.stock_report_table')
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped" id="closing_stock_details_table">
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>@lang('business.product')</th>
+                            <th>@lang('sale.location')</th>
+                            <th>@lang('report.current_stock')</th>
+                            <th>@lang('lang_v1.total_stock_price') <br><small>(@lang('lang_v1.by_purchase_price'))</small></th>
+                            <th>@lang('lang_v1.total_stock_price') <br><small>(@lang('lang_v1.by_sale_price'))</small></th>
+                            <th>@lang('lang_v1.potential_profit')</th>
+                        </tr>
+                    </thead>
+                    <tfoot>
+                        <tr class="bg-gray font-17 text-center footer-total">
+                            <td colspan="4"><strong>@lang('sale.total'):</strong></td>
+                            <td class="footer_total_stock_price"></td>
+                            <td class="footer_stock_value_by_sale_price"></td>
+                            <td class="footer_potential_profit"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
             @endcomponent
         </div>
     </div>

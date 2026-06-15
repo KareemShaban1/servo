@@ -796,6 +796,7 @@ class ProductController extends Controller
 
             $product_details['enable_stock'] = (!empty($request->input('enable_stock')) && $request->input('enable_stock') == 1) ? 1 : 0;
             $product_details['not_for_selling'] = (!empty($request->input('not_for_selling')) && $request->input('not_for_selling') == 1) ? 1 : 0;
+            $product_details['show_in_tab3een'] = (!empty($request->input('show_in_tab3een')) && $request->input('show_in_tab3een') == 1) ? 1 : 0;
 
             if (!empty($request->input('sub_category_id'))) {
                 $product_details['sub_category_id'] = $request->input('sub_category_id');
@@ -1035,6 +1036,7 @@ class ProductController extends Controller
             }
 
             $product->active_in_app = $product_details['active_in_app'];
+            $product->show_in_tab3een = (!empty($request->input('show_in_tab3een')) && $request->input('show_in_tab3een') == 1) ? 1 : 0;
             $product->name = $product_details['name'];
             $product->brand_id = $product_details['brand_id'];
             $product->unit_id = $product_details['unit_id'];

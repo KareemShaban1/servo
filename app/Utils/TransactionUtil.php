@@ -2115,6 +2115,12 @@ class TransactionUtil extends Util
                         ->first();
                 }
 
+                if (empty($scheme)) {
+                    throw new \RuntimeException(
+                        'Invoice scheme not found for business_id: ' . $business_id . ', location_id: ' . $location_id
+                    );
+                }
+
                 if ($scheme->scheme_type == 'blank') {
                     $prefix = $scheme->prefix;
                 } else {
@@ -2145,18 +2151,30 @@ class TransactionUtil extends Util
 
     private function getInvoiceSchemeWithLock($business_id, $location_id)
     {
-        $scheme_id = BusinessLocation::where('business_id', $business_id)
-            ->where('id', $location_id)
-            ->first()
-            ->invoice_scheme_id;
+        $scheme = null;
 
-        if (!empty($scheme_id) && $scheme_id != 0) {
-            $scheme = InvoiceScheme::where('id', $scheme_id)->lockForUpdate()->first();
+        if (!empty($location_id)) {
+            $location = BusinessLocation::where('business_id', $business_id)
+                ->where('id', $location_id)
+                ->first();
+
+            if (!empty($location) && !empty($location->invoice_scheme_id) && $location->invoice_scheme_id != 0) {
+                $scheme = InvoiceScheme::where('business_id', $business_id)
+                    ->where('id', $location->invoice_scheme_id)
+                    ->lockForUpdate()
+                    ->first();
+            }
         }
 
         if (empty($scheme)) {
             $scheme = InvoiceScheme::where('business_id', $business_id)
                 ->where('is_default', 1)
+                ->lockForUpdate()
+                ->first();
+        }
+
+        if (empty($scheme)) {
+            $scheme = InvoiceScheme::where('business_id', $business_id)
                 ->lockForUpdate()
                 ->first();
         }
@@ -3640,6 +3658,83 @@ class TransactionUtil extends Util
 
         $details = $query->first();
         return $details->stock;
+    }
+
+    /**
+     * Product-level closing stock breakdown using the same purchase-line logic as getOpeningClosingStock.
+     *
+     * @param int $business_id
+     * @param string $date
+     * @param int|null $location_id
+     * @param array $filters
+     *
+     * @return \Illuminate\Database\Query\Builder
+     */
+    public function getClosingStockProductDetails($business_id, $date, $location_id, $filters = [])
+    {
+        $remaining_qty_sql = "(purchase_lines.quantity - purchase_lines.quantity_returned - purchase_lines.quantity_adjusted -
+                            (SELECT COALESCE(SUM(tspl.quantity - tspl.qty_returned), 0) FROM 
+                            transaction_sell_lines_purchase_lines AS tspl
+                            JOIN transaction_sell_lines as tsl ON 
+                            tspl.sell_line_id=tsl.id 
+                            JOIN transactions as sale ON 
+                            tsl.transaction_id=sale.id 
+                            WHERE tspl.purchase_line_id = purchase_lines.id AND 
+                            date(sale.transaction_date) <= '$date'))";
+
+        $query = PurchaseLine::join(
+            'transactions as purchase',
+            'purchase_lines.transaction_id',
+            '=',
+            'purchase.id'
+        )
+            ->where('purchase.type', '!=', 'purchase_order')
+            ->where('purchase.business_id', $business_id)
+            ->whereRaw("date(purchase.transaction_date) <= '$date'")
+            ->leftjoin('variations as v', 'v.id', '=', 'purchase_lines.variation_id')
+            ->leftjoin('products as p', 'p.id', '=', 'purchase_lines.product_id')
+            ->leftjoin('product_variations as pv', 'v.product_variation_id', '=', 'pv.id')
+            ->leftjoin('business_locations as l', 'l.id', '=', 'purchase.location_id')
+            ->leftjoin('units', 'p.unit_id', '=', 'units.id');
+
+        if (!empty($filters['category_id'])) {
+            $query->where('p.category_id', $filters['category_id']);
+        }
+        if (!empty($filters['sub_category_id'])) {
+            $query->where('p.sub_category_id', $filters['sub_category_id']);
+        }
+        if (!empty($filters['brand_id'])) {
+            $query->where('p.brand_id', $filters['brand_id']);
+        }
+        if (!empty($filters['unit_id'])) {
+            $query->where('p.unit_id', $filters['unit_id']);
+        }
+
+        $permitted_locations = auth()->user()->permitted_locations();
+        if ($permitted_locations != 'all') {
+            $query->whereIn('purchase.location_id', $permitted_locations);
+        }
+
+        if (!empty($location_id)) {
+            $query->where('purchase.location_id', $location_id);
+        }
+
+        $query->select(
+            'v.sub_sku as sku',
+            'p.name as product',
+            'p.type',
+            'pv.name as product_variation',
+            'v.name as variation_name',
+            'l.name as location_name',
+            'units.short_name as unit',
+            DB::raw("SUM($remaining_qty_sql) as stock_qty"),
+            DB::raw("SUM($remaining_qty_sql * (purchase_lines.purchase_price + COALESCE(purchase_lines.item_tax, 0))) as stock_value_by_pp"),
+            DB::raw("SUM($remaining_qty_sql * v.sell_price_inc_tax) as stock_value_by_sp")
+        )
+            ->groupBy('v.id', 'purchase.location_id')
+            ->havingRaw("SUM($remaining_qty_sql) > 0");
+
+        return $query;
     }
 
     /**

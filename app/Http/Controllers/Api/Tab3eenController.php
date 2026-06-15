@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tab3een\StoreTab3eenOrderRequest;
 use App\Services\API\Tab3eenService;
 use Illuminate\Http\JsonResponse;
 
@@ -27,5 +28,16 @@ class Tab3eenController extends Controller
             $data,
             __('message.Products have been retrieved successfully')
         );
+    }
+
+    public function store(StoreTab3eenOrderRequest $request)
+    {
+        $order = $this->service->store($request);
+
+        if ($order instanceof JsonResponse) {
+            return $order;
+        }
+
+        return $this->returnJSON($order, __('message.Order has been created successfully'));
     }
 }

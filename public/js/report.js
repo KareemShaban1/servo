@@ -168,6 +168,58 @@ $(document).ready(function() {
         },
     });
 
+    if ($('#closing_stock_details_table').length == 1) {
+        get_sub_categories();
+
+        closing_stock_details_table = $('#closing_stock_details_table').DataTable({
+            processing: true,
+            serverSide: true,
+            scrollY: '75vh',
+            scrollX: true,
+            scrollCollapse: true,
+            ajax: {
+                url: '/reports/closing-stock-details',
+                data: function(d) {
+                    d.location_id = $('#closing_stock_details_filter_form #location_id').val();
+                    d.category_id = $('#closing_stock_details_filter_form #category_id').val();
+                    d.sub_category_id = $('#closing_stock_details_filter_form #sub_category_id').val();
+                    d.brand_id = $('#closing_stock_details_filter_form #brand').val();
+                    d.unit_id = $('#closing_stock_details_filter_form #unit').val();
+                },
+            },
+            columns: [
+                { data: 'sku', name: 'sku' },
+                { data: 'product', name: 'product' },
+                { data: 'location_name', name: 'location_name' },
+                { data: 'stock_qty', name: 'stock_qty', searchable: false },
+                { data: 'stock_value_by_pp', name: 'stock_value_by_pp', searchable: false },
+                { data: 'stock_value_by_sp', name: 'stock_value_by_sp', searchable: false },
+                { data: 'potential_profit', name: 'potential_profit', searchable: false, orderable: false },
+            ],
+            fnDrawCallback: function(oSettings) {
+                __currency_convert_recursively($('#closing_stock_details_table'));
+
+                var json = closing_stock_details_table.ajax.json();
+                if (json) {
+                    if (typeof json.closing_stock_by_pp !== 'undefined') {
+                        $('#closing_stock_by_pp').text(__currency_trans_from_en(json.closing_stock_by_pp));
+                        $('#closing_stock_by_sp').text(__currency_trans_from_en(json.closing_stock_by_sp));
+                        $('#potential_profit').text(__currency_trans_from_en(json.potential_profit));
+                    }
+
+                    $('.footer_total_stock_price').html(__currency_trans_from_en(json.closing_stock_by_pp));
+                    $('.footer_stock_value_by_sale_price').html(__currency_trans_from_en(json.closing_stock_by_sp));
+                    $('.footer_potential_profit').html(__currency_trans_from_en(json.potential_profit));
+                }
+            },
+        });
+
+        $('#closing_stock_details_filter_form #location_id, #closing_stock_details_filter_form #category_id, #closing_stock_details_filter_form #sub_category_id, #closing_stock_details_filter_form #brand, #closing_stock_details_filter_form #unit')
+            .change(function() {
+                closing_stock_details_table.ajax.reload();
+            });
+    }
+
     if ($('#trending_product_date_range').length == 1) {
         get_sub_categories();
         $('#trending_product_date_range').daterangepicker({
