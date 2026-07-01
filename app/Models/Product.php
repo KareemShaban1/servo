@@ -28,7 +28,7 @@ class Product extends Model
     'category_id','sub_category_id','tax','tax_type','enable_stock','alert_quantity','sku',
     'barcode_type','expiry_period','expiry_period_type','enable_sr_no','weight',
     'product_custom_field1','product_custom_field2','product_custom_field3','product_custom_field4',
-    'image','product_description','created_by','warranty_id','is_inactive','not_for_selling',
+    'image','product_description','warranties','created_by','warranty_id','is_inactive','not_for_selling',
     'active_in_app','show_in_tab3een'];
 
 
