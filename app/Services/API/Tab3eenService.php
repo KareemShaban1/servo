@@ -519,6 +519,7 @@ class Tab3eenService extends BaseService
 
         return array_merge($details, [
             'current_stock' => collect($details['variations'])->sum('total_qty_available'),
+	  'warranties' => $product->warranties ?? null,
             'brand' => $product->brand ? [
                 'id' => $product->brand->id,
                 'name' => $product->brand->name,
