@@ -37,6 +37,7 @@ use Illuminate\Support\Facades\Route;
 
 
 Route::get('tab3een', [Tab3eenController::class, 'index']);
+Route::get('tab3een/products/{id}', [Tab3eenController::class, 'show']);
 Route::post('tab3een/orders', [Tab3eenController::class, 'store']);
 
 Route::get('categories/{category_id?}', [CategoryController::class, 'index']);

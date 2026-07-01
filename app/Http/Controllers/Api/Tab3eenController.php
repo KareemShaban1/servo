@@ -30,6 +30,20 @@ class Tab3eenController extends Controller
         );
     }
 
+    public function show($id)
+    {
+        $data = $this->service->show($id);
+
+        if ($data instanceof JsonResponse) {
+            return $data;
+        }
+
+        return $this->returnJSON(
+            $data,
+            __('message.Product has been showed successfully')
+        );
+    }
+
     public function store(StoreTab3eenOrderRequest $request)
     {
         $order = $this->service->store($request);

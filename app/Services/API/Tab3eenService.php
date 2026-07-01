@@ -115,6 +115,43 @@ class Tab3eenService extends BaseService
         }
     }
 
+    public function show($id)
+    {
+        try {
+            $tab3eenGroup = SellingPriceGroup::where('name', 'tab3een')->active()->first();
+            if (!$tab3eenGroup) {
+                return $this->error(__('message.Resource not found'), [], 404);
+            }
+
+            $product = Product::with([
+                'variations.variation_location_details.location',
+                'variations.group_prices' => function ($query) use ($tab3eenGroup) {
+                    $query->where('price_group_id', $tab3eenGroup->id);
+                },
+                'media',
+                'brand:id,name',
+                'category:id,name,image,sort_order',
+                'sub_category:id,name,image,sort_order',
+            ])
+                ->where('id', $id)
+                ->where('show_in_tab3een', 1)
+                ->where('active_in_app', 1)
+                ->where('not_for_selling', 0)
+                ->active()
+                ->productForSales()
+                ->first();
+
+            if (!$product) {
+                return $this->error(__('message.Resource not found'), [], 404);
+            }
+
+            return $this->formatProductDetails($product, $tab3eenGroup);
+
+        } catch (\Exception $e) {
+            return $this->handleException($e, __('message.Error happened while showing Product'));
+        }
+    }
+
     /**
      * Create a Tab3een order using the configured integration client.
      *
@@ -473,6 +510,31 @@ class Tab3eenService extends BaseService
             DB::rollBack();
             return $this->handleException($e, __('message.Error happened while making sale'));
         }
+    }
+
+    private function formatProductDetails(Product $product, SellingPriceGroup $tab3eenGroup): array
+    {
+        $details = $this->formatProduct($product, $tab3eenGroup);
+        $category = $product->sub_category ?? $product->category;
+
+        return array_merge($details, [
+            'current_stock' => collect($details['variations'])->sum('total_qty_available'),
+            'brand' => $product->brand ? [
+                'id' => $product->brand->id,
+                'name' => $product->brand->name,
+            ] : null,
+            'category' => $category ? [
+                'id' => $category->id,
+                'name' => $category->name,
+                'image' => $category->image_url,
+            ] : null,
+            'media' => $product->media->map(function ($media) {
+                return [
+                    'id' => $media->id,
+                    'display_url' => $media->display_url,
+                ];
+            })->values()->all(),
+        ]);
     }
 
     private function formatProduct(Product $product, SellingPriceGroup $tab3eenGroup): array
