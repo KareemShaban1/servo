@@ -97,6 +97,7 @@ class Tab3eenService extends BaseService
 
                 return [
                     'id' => $category->id,
+                    'category_id' => $category->id,
                     'name' => $category->name,
                     'sort_order' => (int) ($category->sort_order ?? 0),
                     'image' => $category->image_url,
@@ -562,6 +563,7 @@ class Tab3eenService extends BaseService
         return [
             'id' => $product->id,
             'name' => $product->name,
+            'category_id' => $product->category_id,
             'description' => $product->product_description,
             'image_url' => $product->image_url,
             'type' => $product->type,
