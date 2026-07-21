@@ -510,7 +510,7 @@ class OrderController extends Controller
                 case 'processing':
                     $orderTracking->processing_at = now();
                     $order->user_id = auth()->id();
-                    $this->sendNotification($order, 'processed');
+                    // $this->sendNotification($order, 'processed');
                     break;
 
                 case 'shipped':
@@ -519,7 +519,7 @@ class OrderController extends Controller
                     if ($delivery) {
                         $this->updateDeliveryBalance($order, $delivery);
                     }
-                    $this->sendNotification($order, 'shipped');
+                    // $this->sendNotification($order, 'shipped');
                     break;
 
                 case 'cancelled':
@@ -534,7 +534,7 @@ class OrderController extends Controller
 
                 case 'completed':
                     $orderTracking->completed_at = now();
-                    $this->sendNotification($order, 'completed');
+                    // $this->sendNotification($order, 'completed');
                     break;
             }
 
