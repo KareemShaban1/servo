@@ -261,7 +261,7 @@ $(document).ready(function() {
 			}
 		},
 		columnDefs: [{
-			"targets": [0, 1, 2, {{ $flag_col_active }}, {{ $flag_col_active + 1 }}],
+			"targets": [0, 1, 2, {{ $flag_col_active }}, {{ $flag_col_active + 1 }}, {{ $flag_col_active + 2 }}],
 			"orderable": false,
 			"searchable": false
 		}],
@@ -330,6 +330,12 @@ $(document).ready(function() {
 			{
 				data: 'not_for_selling_toggle',
 				name: 'products.not_for_selling',
+				searchable: false,
+				orderable: false
+			},
+			{
+				data: 'show_in_tab3een',
+				name: 'products.show_in_tab3een',
 				searchable: false,
 				orderable: false
 			},

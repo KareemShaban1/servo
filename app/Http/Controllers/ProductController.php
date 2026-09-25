@@ -426,6 +426,7 @@ class ProductController extends Controller
                 'products.is_inactive',
                 'products.not_for_selling',
                 'products.active_in_app',
+                'products.show_in_tab3een',
                 'products.product_custom_field1',
                 'products.product_custom_field2',
                 'products.product_custom_field3',
@@ -596,6 +597,12 @@ class ProductController extends Controller
 
                     return '<input type="checkbox" class="product-flag-checkbox" data-product-id="' . $row->id . '" data-field="not_for_selling" ' . $checked . ' ' . $disabled . '>';
                 })
+                ->addColumn('show_in_tab3een', function ($row) {
+                    $checked = $row->show_in_tab3een == 1 ? 'checked' : '';
+                    $disabled = auth()->user()->can('product.update') ? '' : 'disabled';
+
+                    return '<input type="checkbox" class="product-flag-checkbox" data-product-id="' . $row->id . '" data-field="show_in_tab3een" ' . $checked . ' ' . $disabled . '>';
+                })
                 // ->editColumn('current_stock', '@if($enable_stock == 1) {{@number_format($current_stock)}} @else -- @endif {{$unit}}')
                 ->editColumn('current_stock', function ($row) {
                     if ($row->enable_stock != 1) {
@@ -640,7 +647,7 @@ class ProductController extends Controller
                         }
                     }
                 ])
-                ->rawColumns(['action', 'image', 'mass_delete', 'product', 'selling_price', 'purchase_price', 'category', 'active_in_app', 'not_for_selling_toggle'])
+                ->rawColumns(['action', 'image', 'mass_delete', 'product', 'selling_price', 'purchase_price', 'category', 'active_in_app', 'not_for_selling_toggle', 'show_in_tab3een'])
                 ->make(true);
         }
 
@@ -2650,7 +2657,7 @@ class ProductController extends Controller
 
         $request->validate([
             'product_id' => 'required|integer',
-            'field' => 'required|in:active_in_app,not_for_selling',
+            'field' => 'required|in:active_in_app,not_for_selling,show_in_tab3een',
             'value' => 'required|in:0,1',
         ]);
 
