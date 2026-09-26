@@ -82,7 +82,8 @@ class Tab3eenService extends BaseService
 
             $categoryIds = $productsByCategory->keys()->filter()->unique()->values();
 
-            $categories = Category::whereIn('id', $categoryIds)
+            $categories = Category::with('parent_category:id,name')
+                ->whereIn('id', $categoryIds)
                 ->where('category_type', 'product')
                 ->orderBy('sort_order', 'asc')
                 ->orderBy('name', 'asc')
@@ -94,11 +95,16 @@ class Tab3eenService extends BaseService
 
             return $categories->map(function (Category $category) use ($productsByCategory, $tab3eenGroup) {
                 $products = $productsByCategory->get($category->id, collect());
+                $parent = (!empty($category->parent_id) && $category->parent_category)
+                    ? $category->parent_category
+                    : null;
 
                 return [
                     'id' => $category->id,
-                    'category_id' => $category->id,
-                    'name' => $category->name,
+                    'category_id' => $parent ? $parent->id : $category->id,
+                    'category_name' => $parent ? $parent->name : $category->name,
+                    'sub_category_id' => $parent ? $category->id : null,
+                    'sub_category_name' => $parent ? $category->name : null,
                     'sort_order' => (int) ($category->sort_order ?? 0),
                     'image' => $category->image_url,
                     'products' => $products->map(function (Product $product) use ($tab3eenGroup) {
@@ -516,7 +522,6 @@ class Tab3eenService extends BaseService
     private function formatProductDetails(Product $product, SellingPriceGroup $tab3eenGroup): array
     {
         $details = $this->formatProduct($product, $tab3eenGroup);
-        $category = $product->sub_category ?? $product->category;
 
         return array_merge($details, [
             'current_stock' => collect($details['variations'])->sum('total_qty_available'),
@@ -525,10 +530,15 @@ class Tab3eenService extends BaseService
                 'id' => $product->brand->id,
                 'name' => $product->brand->name,
             ] : null,
-            'category' => $category ? [
-                'id' => $category->id,
-                'name' => $category->name,
-                'image' => $category->image_url,
+            'category' => $product->category ? [
+                'id' => $product->category->id,
+                'name' => $product->category->name,
+                'image' => $product->category->image_url,
+            ] : null,
+            'sub_category' => $product->sub_category ? [
+                'id' => $product->sub_category->id,
+                'name' => $product->sub_category->name,
+                'image' => $product->sub_category->image_url,
             ] : null,
             'media' => $product->media->map(function ($media) {
                 return [
