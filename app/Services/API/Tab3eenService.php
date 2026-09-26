@@ -64,6 +64,8 @@ class Tab3eenService extends BaseService
                     $query->where('price_group_id', $tab3eenGroup->id);
                 },
                 'media',
+                'category:id,name',
+                'sub_category:id,name',
             ])
                 ->where('show_in_tab3een', 1)
                 ->where('active_in_app', 1)
@@ -101,8 +103,8 @@ class Tab3eenService extends BaseService
 
                 return [
                     'id' => $category->id,
-                    'category_id' => $parent ? $parent->id : $category->id,
-                    'category_name' => $parent ? $parent->name : $category->name,
+                    'category_id' => $category->id,
+                    'category_name' => $category->name,
                     'sub_category_id' => $parent ? $category->id : null,
                     'sub_category_name' => $parent ? $category->name : null,
                     'sort_order' => (int) ($category->sort_order ?? 0),
@@ -573,7 +575,8 @@ class Tab3eenService extends BaseService
         return [
             'id' => $product->id,
             'name' => $product->name,
-            'category_id' => $product->category_id,
+            'category_id' => $product->sub_category_id ?: $product->category_id,
+            'category_name' => optional($product->sub_category)->name ?? optional($product->category)->name,
             'description' => $product->product_description,
             'image_url' => $product->image_url,
             'type' => $product->type,
