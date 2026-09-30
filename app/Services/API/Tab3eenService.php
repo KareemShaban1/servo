@@ -66,7 +66,7 @@ class Tab3eenService extends BaseService
                 'media',
                 'category:id,name',
                 'sub_category:id,name',
-                'tags:id,name,active',
+                'tags',
             ])
                 ->where('show_in_tab3een', 1)
                 ->where('active_in_app', 1)
@@ -139,7 +139,7 @@ class Tab3eenService extends BaseService
                 'brand:id,name',
                 'category:id,name,image,sort_order',
                 'sub_category:id,name,image,sort_order',
-                'tags:id,name,active',
+                'tags',
             ])
                 ->where('id', $id)
                 ->where('show_in_tab3een', 1)
