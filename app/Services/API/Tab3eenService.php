@@ -66,6 +66,7 @@ class Tab3eenService extends BaseService
                 'media',
                 'category:id,name',
                 'sub_category:id,name',
+                'tags:id,name,active',
             ])
                 ->where('show_in_tab3een', 1)
                 ->where('active_in_app', 1)
@@ -138,6 +139,7 @@ class Tab3eenService extends BaseService
                 'brand:id,name',
                 'category:id,name,image,sort_order',
                 'sub_category:id,name,image,sort_order',
+                'tags:id,name,active',
             ])
                 ->where('id', $id)
                 ->where('show_in_tab3een', 1)
@@ -579,6 +581,16 @@ class Tab3eenService extends BaseService
             'description' => $product->product_description,
             'image_url' => $product->image_url,
             'type' => $product->type,
+            'tags' => $product->tags
+                ->where('active', 1)
+                ->map(function ($tag) {
+                    return [
+                        'id' => $tag->id,
+                        'name' => $tag->name,
+                    ];
+                })
+                ->values()
+                ->all(),
             'variations' => $variations,
         ];
     }
