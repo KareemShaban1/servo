@@ -583,12 +583,7 @@ class Tab3eenService extends BaseService
             'type' => $product->type,
             'tags' => $product->tags
                 ->where('active', 1)
-                ->map(function ($tag) {
-                    return [
-                        'id' => $tag->id,
-                        'name' => $tag->name,
-                    ];
-                })
+                ->pluck('name')
                 ->values()
                 ->all(),
             'variations' => $variations,
