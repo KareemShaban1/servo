@@ -64,8 +64,8 @@ class Tab3eenService extends BaseService
                     $query->where('price_group_id', $tab3eenGroup->id);
                 },
                 'media',
-                'category:id,name',
-                'sub_category:id,name',
+                'category:id,name,image',
+                'sub_category:id,name,image',
                 'tags',
             ])
                 ->where('show_in_tab3een', 1)
@@ -103,10 +103,12 @@ class Tab3eenService extends BaseService
                     'id' => $category->id,
                     'category_id' => $product->category_id,
                     'category_name' => optional($product->category)->name,
+                    'category_image' => optional($product->category)->image_url,
                     'sub_category_id' => $product->sub_category_id,
                     'sub_category_name' => optional($product->sub_category)->name,
+                    'sub_category_image' => optional($product->sub_category)->image_url,
                     'sort_order' => (int) ($category->sort_order ?? 0),
-                    'image' => $category->image_url,
+                    'image' => optional($product->sub_category)->image_url ?? optional($product->category)->image_url,
                     'products' => $products->map(function (Product $product) use ($tab3eenGroup) {
                         return $this->formatProduct($product, $tab3eenGroup);
                     })->values()->all(),
