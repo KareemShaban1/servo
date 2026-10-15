@@ -6,7 +6,6 @@ use App\Http\Requests\Tab3een\StoreTab3eenOrderRequest;
 use App\Models\ApplicationSettings;
 use App\Models\BusinessLocation;
 use App\Models\Cart;
-use App\Models\Category;
 use App\Models\Client;
 use App\Models\InvoiceScheme;
 use App\Models\Order;
@@ -64,8 +63,8 @@ class Tab3eenService extends BaseService
                     $query->where('price_group_id', $tab3eenGroup->id);
                 },
                 'media',
-                'category:id,name,image',
-                'sub_category:id,name,image',
+                'category:id,name,image,sort_order',
+                'sub_category:id,name,image,sort_order',
                 'tags',
             ])
                 ->where('show_in_tab3een', 1)
@@ -79,37 +78,35 @@ class Tab3eenService extends BaseService
                 return collect();
             }
 
-            $productsByCategory = $products->groupBy(function (Product $product) {
-                return !empty($product->sub_category_id) ? $product->sub_category_id : $product->category_id;
+            // Group by each product's own category + brand (sub_category), so a brand
+            // with products in multiple parent categories becomes separate groups.
+            $productsByGroup = $products->groupBy(function (Product $product) {
+                $categoryId = $product->category_id ?? 0;
+                $subCategoryId = $product->sub_category_id ?? 0;
+
+                return $categoryId . ':' . $subCategoryId;
             });
 
-            $categoryIds = $productsByCategory->keys()->filter()->unique()->values();
-
-            $categories = Category::whereIn('id', $categoryIds)
-                ->where('category_type', 'product')
-                ->orderBy('sort_order', 'asc')
-                ->orderBy('name', 'asc')
-                ->get()
-                ->sortBy(function (Category $category) use ($categoryIds) {
-                    return $categoryIds->search($category->id);
-                })
-                ->values();
-
-            return $categories->map(function (Category $category) use ($productsByCategory, $tab3eenGroup) {
-                $products = $productsByCategory->get($category->id, collect());
-                $product = $products->first();
+            return $productsByGroup->map(function ($groupProducts) use ($tab3eenGroup) {
+                $product = $groupProducts->first();
+                $groupId = !empty($product->sub_category_id)
+                    ? $product->sub_category_id
+                    : $product->category_id;
+                $sortOrder = !empty($product->sub_category_id)
+                    ? (int) (optional($product->sub_category)->sort_order ?? 0)
+                    : (int) (optional($product->category)->sort_order ?? 0);
 
                 return [
-                    'id' => $category->id,
+                    'id' => $groupId,
                     'category_id' => $product->category_id,
                     'category_name' => optional($product->category)->name,
                     'category_image' => optional($product->category)->image_url,
                     'sub_category_id' => $product->sub_category_id,
                     'sub_category_name' => optional($product->sub_category)->name,
                     'sub_category_image' => optional($product->sub_category)->image_url,
-                    'sort_order' => (int) ($category->sort_order ?? 0),
+                    'sort_order' => $sortOrder,
                     'image' => optional($product->sub_category)->image_url ?? optional($product->category)->image_url,
-                    'products' => $products->map(function (Product $product) use ($tab3eenGroup) {
+                    'products' => $groupProducts->map(function (Product $product) use ($tab3eenGroup) {
                         return $this->formatProduct($product, $tab3eenGroup);
                     })->values()->all(),
                 ];
@@ -117,6 +114,11 @@ class Tab3eenService extends BaseService
             ->filter(function (array $category) {
                 return !empty($category['products']);
             })
+            ->sortBy([
+                ['sort_order', 'asc'],
+                ['category_name', 'asc'],
+                ['sub_category_name', 'asc'],
+            ])
             ->values();
 
         } catch (\Exception $e) {
